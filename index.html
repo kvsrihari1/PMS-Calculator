@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMS Capital Gains Tax Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0f1a; --surface: #141928; --surface2: #1c2336; --surface3: #242d42;
+    --border: #2a3550; --accent: #e8a045; --accent2: #5b8dee; --accent3: #4ecb94;
+    --danger: #e05c5c; --text: #e8eaf2; --text2: #8b93ab; --text3: #5c6480;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #0f1623 0%, #1a2340 50%, #0f1623 100%);
+    border-bottom: 1px solid var(--border); padding: 28px 40px; position: relative; overflow: hidden;
+  }
+  .header::before {
+    content: ''; position: absolute; top: -60px; right: -60px; width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(232,160,69,0.12) 0%, transparent 70%); border-radius: 50%;
+  }
+  .header-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+  .header h1 { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--accent); }
+  .header p { color: var(--text2); font-size: 0.9rem; margin-top: 4px; font-weight: 300; }
+
+  .sync-banner {
+    background: rgba(78,203,148,0.08); border-bottom: 1px solid rgba(78,203,148,0.2); padding: 9px 40px;
+  }
+  .sync-banner-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 10px; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent3); animation: pulse 2s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  .sync-text { font-size: 0.75rem; color: var(--accent3); font-weight: 600; white-space: nowrap; }
+  .sync-desc { font-size: 0.72rem; color: var(--text3); }
+
+  .nav { background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; padding: 0 40px; }
+  .tab { padding: 16px 24px; cursor: pointer; font-size: 0.82rem; font-weight: 500; color: var(--text3);
+    border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; letter-spacing: 0.03em; text-transform: uppercase; }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .main { max-width: 1200px; margin: 0 auto; padding: 36px 40px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--text); margin-bottom: 6px; }
+  .page-subtitle { color: var(--text3); font-size: 0.85rem; margin-bottom: 32px; font-weight: 300; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
+  .card-title { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text3); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .card-title::before { content: ''; width: 3px; height: 14px; background: var(--accent); border-radius: 2px; flex-shrink: 0; }
+
+  .form-group { margin-bottom: 18px; position: relative; }
+  .form-group label { display: block; font-size: 0.78rem; color: var(--text2); margin-bottom: 7px; font-weight: 500; }
+  .form-group input, .form-group select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 0.9rem;
+    font-family: 'DM Sans', sans-serif; transition: border-color 0.2s, background 0.2s; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); background: var(--surface3); }
+  .form-group select option { background: var(--surface2); }
+  .input-prefix-wrap { position: relative; }
+  .input-prefix { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text3); font-size: 0.85rem; pointer-events: none; }
+  .input-prefix-wrap input { padding-left: 28px; }
+
+  /* Synced field tag */
+  .synced-tag {
+    font-size: 0.62rem; background: rgba(78,203,148,0.12); color: var(--accent3);
+    border: 1px solid rgba(78,203,148,0.25); border-radius: 10px; padding: 2px 8px;
+    font-weight: 600; margin-left: 6px; vertical-align: middle;
+  }
+  /* Computed (read-only) */
+  .computed-input { background: var(--surface3) !important; color: var(--accent2) !important;
+    border-color: rgba(91,141,238,0.3) !important; cursor: not-allowed; font-weight: 600; }
+  .computed-tag {
+    font-size: 0.62rem; background: rgba(91,141,238,0.12); color: var(--accent2);
+    border: 1px solid rgba(91,141,238,0.25); border-radius: 10px; padding: 2px 8px;
+    font-weight: 600; margin-left: 6px; vertical-align: middle;
+  }
+  /* Flash animation when synced from another tab */
+  @keyframes syncFlash { 0%{border-color:var(--accent3);background:rgba(78,203,148,0.08)} 100%{border-color:var(--border);background:var(--surface2)} }
+  .sync-flash { animation: syncFlash 0.8s ease forwards; }
+
+  .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 14px; }
+  .result-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .result-label { font-size: 0.7rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .result-value { font-size: 1.2rem; font-weight: 600; color: var(--text); }
+  .result-item.highlight { border-color: var(--accent); background: rgba(232,160,69,0.07); }
+  .result-item.highlight .result-value { color: var(--accent); }
+  .result-item.positive { border-color: var(--accent3); background: rgba(78,203,148,0.07); }
+  .result-item.positive .result-value { color: var(--accent3); }
+  .result-item.negative { border-color: var(--danger); background: rgba(224,92,92,0.07); }
+  .result-item.negative .result-value { color: var(--danger); }
+  .result-item.blue { border-color: var(--accent2); background: rgba(91,141,238,0.07); }
+  .result-item.blue .result-value { color: var(--accent2); }
+
+  .divider { height: 1px; background: var(--border); margin: 28px 0; }
+  .toggle-group { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toggle-btn { flex: 1; padding: 9px 14px; border: none; background: transparent; color: var(--text3);
+    cursor: pointer; font-size: 0.82rem; font-family: 'DM Sans', sans-serif; font-weight: 500; transition: all 0.2s; }
+  .toggle-btn.active { background: var(--accent); color: #000; font-weight: 600; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; padding: 10px 14px; background: var(--surface3); color: var(--text3);
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); }
+  td { padding: 11px 14px; border-bottom: 1px solid rgba(42,53,80,0.5); color: var(--text2); }
+  tr:hover td { background: rgba(255,255,255,0.02); color: var(--text); }
+  tr.active-row td { color: var(--accent); font-weight: 600; background: rgba(232,160,69,0.05); }
+
+  .timeline-bar-wrap { margin-top: 16px; }
+  .timeline-track { height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+  .timeline-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent3), var(--accent)); transition: width 0.6s ease; }
+  .timeline-label { font-size: 0.75rem; color: var(--text3); display: flex; justify-content: space-between; }
+
+  .bar-chart { display: flex; gap: 8px; align-items: flex-end; height: 140px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bar-label { font-size: 0.68rem; color: var(--text3); }
+  .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; cursor: pointer; transition: opacity 0.2s; }
+  .bar:hover { opacity: 0.8; }
+  .bar:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); background: var(--surface3); border: 1px solid var(--border);
+    padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; white-space: nowrap; color: var(--text); z-index: 10; }
+
+  @media (max-width: 768px) {
+    .header, .sync-banner { padding: 20px; }
+    .main { padding: 20px; }
+    .nav-inner { padding: 0 12px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .header h1 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <h1>PMS Capital Gains Tax Calculator</h1>
+    <p>Comprehensive tax analysis & outperformance recovery tool for Portfolio Management Services</p>
+  </div>
+</div>
+
+<div class="sync-banner">
+  <div class="sync-banner-inner">
+    <div class="sync-dot"></div>
+    <span class="sync-text">Live Sync Active</span>
+    <span class="sync-desc">— Investment Amount, Capital Gains &amp; Outperformance % are shared across tabs. Change once, all tabs update instantly.</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="tab active" onclick="showTab(0)">Equity Calculator</div>
+    <div class="tab" onclick="showTab(1)">Multi-Year Analysis</div>
+    <div class="tab" onclick="showTab(2)">Quick Comparison</div>
+    <div class="tab" onclick="showTab(3)">Debt Calculator</div>
+    <div class="tab" onclick="showTab(4)">Direct vs Regular MF</div>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- ===== TAB 1: Equity ===== -->
+  <div class="page active" id="page-0">
+    <h2 class="page-title">Equity Capital Gains Tax Calculator</h2>
+    <p class="page-subtitle">Calculate LTCG / STCG tax, effective rate, and PMS outperformance recovery</p>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Input Parameters</div>
+
+        <div class="form-group">
+          <label>Investment Amount (₹) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="eq-investment" value="5050000" oninput="onShared('investment',this.value,'eq-investment')">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Capital Gains Type</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="eq-ltcg-btn" onclick="setEqType('LTCG')">LTCG</button>
+            <button class="toggle-btn" id="eq-stcg-btn" onclick="setEqType('STCG')">STCG</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Total Capital Gains (₹) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="eq-gains" value="410000" oninput="onShared('gains',this.value,'eq-gains')">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Expected Outperformance (% p.a.) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">%</span>
+            <input type="number" id="eq-outperf" value="4" step="0.1" oninput="onShared('outperf',this.value,'eq-outperf')">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Tax Calculation</div>
+        <div class="result-grid">
+          <div class="result-item"><div class="result-label">LTCG Exemption</div><div class="result-value" id="eq-exemption">₹1,25,000</div></div>
+          <div class="result-item"><div class="result-label">Taxable Gains</div><div class="result-value" id="eq-taxable">₹2,85,000</div></div>
+          <div class="result-item"><div class="result-label">Tax Rate</div><div class="result-value" id="eq-rate">12.5%</div></div>
+          <div class="result-item highlight"><div class="result-label">Total Tax Payable</div><div class="result-value" id="eq-tax">₹35,625</div></div>
+          <div class="result-item"><div class="result-label">Effective Tax Rate</div><div class="result-value" id="eq-effrate">8.69%</div></div>
+          <div class="result-item positive"><div class="result-label">Net Amount After Tax</div><div class="result-value" id="eq-net">₹50,14,375</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">PMS Performance Analysis</div>
+        <div class="result-grid">
+          <div class="result-item blue"><div class="result-label">Year 1 Outperformance</div><div class="result-value" id="eq-yr1op">₹2,02,000</div></div>
+          <div class="result-item"><div class="result-label">Tax Paid</div><div class="result-value" id="eq-taxpaid">₹35,625</div></div>
+          <div class="result-item positive"><div class="result-label">Net Benefit</div><div class="result-value" id="eq-netbenefit">₹1,66,375</div></div>
+          <div class="result-item highlight"><div class="result-label">Months to Recover Tax</div><div class="result-value" id="eq-months">2.1 months</div></div>
+        </div>
+        <div class="timeline-bar-wrap">
+          <div style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">Tax recovery timeline (out of 12 months)</div>
+          <div class="timeline-track"><div class="timeline-fill" id="eq-timeline"></div></div>
+          <div class="timeline-label"><span id="eq-tl-left">2.1 months to recover</span><span>12 months</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Scenario Analysis</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Capital Gains</th><th>Tax Payable</th><th>Effective Rate</th></tr></thead>
+          <tbody id="eq-scenario-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 2: Multi-Year ===== -->
+  <div class="page" id="page-1">
+    <h2 class="page-title">Multi-Year Projection</h2>
+    <p class="page-subtitle">See how cumulative outperformance compounds against a one-time tax cost</p>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">Parameters</div>
+
+        <div class="form-group">
+          <label>Initial Investment (₹) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="my-investment" value="5050000" oninput="onShared('investment',this.value,'my-investment')">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>One-time Tax Paid (₹) <span class="computed-tag">auto from Equity tab</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="my-tax" value="35625" class="computed-input" readonly>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Outperformance (% p.a.) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">%</span>
+            <input type="number" id="my-outperf" value="4" step="0.1" oninput="onShared('outperf',this.value,'my-outperf')">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Projection Horizon (Years)</label>
+          <input type="range" id="my-years" min="1" max="10" value="5" oninput="calcAll(); document.getElementById('my-years-val').textContent=this.value+' years'">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text3);margin-top:4px">
+            <span>1 yr</span><span id="my-years-val">5 years</span><span>10 yrs</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Key Metrics</div>
+        <div class="result-grid">
+          <div class="result-item highlight"><div class="result-label">One-time Tax</div><div class="result-value" id="my-onetax">₹35,625</div></div>
+          <div class="result-item blue"><div class="result-label">Annual Outperformance</div><div class="result-value" id="my-annual">₹2,02,000</div></div>
+          <div class="result-item positive"><div class="result-label">Cumulative Net Benefit</div><div class="result-value" id="my-cum">₹9,74,375</div></div>
+          <div class="result-item"><div class="result-label">ROI on Tax Paid</div><div class="result-value" id="my-roi">28.4x</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Year-by-Year Breakdown</div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Year</th><th>Cumulative Outperformance</th><th>Tax Paid (One-time)</th><th>Net Benefit</th><th>ROI on Tax Paid</th></tr></thead>
+        <tbody id="my-table"></tbody></table>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text3);margin:24px 0 12px">Net Benefit Over Time (₹)</div>
+      <div class="bar-chart" id="my-chart"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 3: Quick Comparison ===== -->
+  <div class="page" id="page-2">
+    <h2 class="page-title">Quick Comparison</h2>
+    <p class="page-subtitle">Why PMS makes sense — tax recovery across outperformance scenarios</p>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">Parameters</div>
+
+        <div class="form-group">
+          <label>Investment Amount (₹) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="qc-investment" value="5050000" oninput="onShared('investment',this.value,'qc-investment')">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Capital Gains (₹) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="qc-gains" value="410000" oninput="onShared('gains',this.value,'qc-gains')">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tax Payable (₹) <span class="computed-tag">auto from Equity tab</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">₹</span>
+            <input type="number" id="qc-tax" value="35625" class="computed-input" readonly>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Custom Outperformance (% p.a.) <span class="synced-tag">⟳ synced</span></label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">%</span>
+            <input type="number" id="qc-custom" value="4" step="0.1" oninput="onShared('outperf',this.value,'qc-custom')">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Outperformance Scenarios — Year 1 Recovery</div>
+        <div id="qc-scenarios"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recovery Timeline Comparison</div>
+      <div id="qc-bars"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 4: Debt ===== -->
+  <div class="page" id="page-3">
+    <h2 class="page-title">Debt Capital Gains Tax Calculator</h2>
+    <p class="page-subtitle">No LTCG exemption for debt — taxed at applicable income slab rate. Inputs are independent.</p>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Input Parameters</div>
+        <div class="form-group">
+          <label>Investment Amount (₹)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">₹</span>
+            <input type="number" id="dt-investment" value="5000000" oninput="calcDebt()"></div>
+        </div>
+        <div class="form-group">
+          <label>Total Capital Gains (₹)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">₹</span>
+            <input type="number" id="dt-gains" value="1000000" oninput="calcDebt()"></div>
+        </div>
+        <div class="form-group">
+          <label>Applicable Tax Rate (Slab %)</label>
+          <select id="dt-taxrate" onchange="calcDebt()">
+            <option value="5">5% — up to ₹3L</option>
+            <option value="10">10% — ₹3L–₹7L</option>
+            <option value="15">15% — ₹7L–₹10L</option>
+            <option value="20" selected>20% — ₹10L–₹12L</option>
+            <option value="25">25% — ₹12L–₹15L</option>
+            <option value="30">30% — above ₹15L</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Expected Outperformance (% p.a.)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">%</span>
+            <input type="number" id="dt-outperf" value="3" step="0.1" oninput="calcDebt()"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Tax Calculation</div>
+        <div class="result-grid">
+          <div class="result-item"><div class="result-label">LTCG Exemption</div><div class="result-value" style="color:var(--text3)">Nil</div></div>
+          <div class="result-item"><div class="result-label">Taxable Gains</div><div class="result-value" id="dt-taxable">₹10,00,000</div></div>
+          <div class="result-item"><div class="result-label">Tax Rate</div><div class="result-value" id="dt-rate">20%</div></div>
+          <div class="result-item highlight"><div class="result-label">Total Tax Payable</div><div class="result-value" id="dt-tax">₹2,00,000</div></div>
+          <div class="result-item"><div class="result-label">Effective Tax Rate</div><div class="result-value" id="dt-effrate">20.0%</div></div>
+          <div class="result-item blue"><div class="result-label">Net Amount After Tax</div><div class="result-value" id="dt-net">₹48,00,000</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="card">
+      <div class="card-title">PMS Performance Analysis</div>
+      <div class="result-grid">
+        <div class="result-item blue"><div class="result-label">Year 1 Outperformance</div><div class="result-value" id="dt-yr1op">₹1,50,000</div></div>
+        <div class="result-item highlight"><div class="result-label">Tax Paid</div><div class="result-value" id="dt-taxpaid">₹2,00,000</div></div>
+        <div class="result-item" id="dt-netcard"><div class="result-label">Net Benefit (Year 1)</div><div class="result-value" id="dt-netbenefit">-₹50,000</div></div>
+        <div class="result-item"><div class="result-label">Months to Recover Tax</div><div class="result-value" id="dt-months">16 months</div></div>
+      </div>
+      <div class="timeline-bar-wrap">
+        <div style="font-size:0.75rem;color:var(--text3);margin-bottom:8px">Tax recovery timeline (out of 24 months)</div>
+        <div class="timeline-track"><div class="timeline-fill" id="dt-timeline"></div></div>
+        <div class="timeline-label"><span id="dt-tl-left">16 months to recover</span><span>24 months</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 5: Direct vs Regular MF ===== -->
+  <div class="page" id="page-4">
+    <h2 class="page-title">Direct vs Regular Mutual Fund Expense</h2>
+    <p class="page-subtitle">Calculate long-term savings from switching regular to direct mutual funds. Inputs are independent.</p>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">Input Parameters</div>
+        <div class="form-group">
+          <label>Current Investment in Regular Funds (₹)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">₹</span>
+            <input type="number" id="mf-investment" value="5000000" oninput="calcMF()"></div>
+        </div>
+        <div class="form-group">
+          <label>Expected Annual Return (%)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">%</span>
+            <input type="number" id="mf-return" value="12" step="0.1" oninput="calcMF()"></div>
+        </div>
+        <div class="form-group">
+          <label>Regular vs Direct Expense Difference (%)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">%</span>
+            <input type="number" id="mf-expense" value="1.2" step="0.1" oninput="calcMF()"></div>
+        </div>
+        <div class="form-group">
+          <label>Capital Gains on Switch (₹)</label>
+          <div class="input-prefix-wrap"><span class="input-prefix">₹</span>
+            <input type="number" id="mf-gains" value="1000000" oninput="calcMF()"></div>
+        </div>
+        <div class="form-group">
+          <label>Type of Gains</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="mf-ltcg-btn" onclick="setMFType('LTCG')">LTCG (12.5%)</button>
+            <button class="toggle-btn" id="mf-stcg-btn" onclick="setMFType('STCG')">STCG (20%)</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Tax on Switching</div>
+        <div class="result-grid">
+          <div class="result-item"><div class="result-label">LTCG Exemption</div><div class="result-value" id="mf-exemption">₹1,25,000</div></div>
+          <div class="result-item"><div class="result-label">Taxable Gains</div><div class="result-value" id="mf-taxable">₹8,75,000</div></div>
+          <div class="result-item highlight"><div class="result-label">Total Tax Payable</div><div class="result-value" id="mf-tax">₹1,09,375</div></div>
+          <div class="result-item blue"><div class="result-label">Annual Savings (Direct)</div><div class="result-value" id="mf-annual">₹60,000</div></div>
+          <div class="result-item"><div class="result-label">Months to Break Even</div><div class="result-value" id="mf-months">21.9 months</div></div>
+          <div class="result-item" id="mf-yr1card"><div class="result-label">Net Savings Year 1</div><div class="result-value" id="mf-yr1net">-₹49,375</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Cumulative Savings Over 10 Years</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Year</th><th>Annual Savings</th><th>Cumulative Savings</th><th>Net After Tax</th></tr></thead>
+          <tbody id="mf-table"></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Scenario Analysis — Expense Gap</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Expense Gap</th><th>Annual Savings</th><th>Recovery (months)</th><th>Year 1 Net</th></tr></thead>
+          <tbody id="mf-scenario-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════════════
+//  SHARED STATE  (mirrors Excel's linked cells)
+// ═══════════════════════════════════════════════════
+const S = {
+  investment: 5050000,
+  gains:      410000,
+  outperf:    4,        // % p.a.
+  eqTax:      0,        // computed by calcEquity → read by MultiYear & QuickComp
+};
+
+// Which input IDs display each shared field
+const SYNC = {
+  investment: ['eq-investment', 'my-investment', 'qc-investment'],
+  gains:      ['eq-gains',      'qc-gains'],
+  outperf:    ['eq-outperf',    'my-outperf',    'qc-custom'],
+};
+
+// Called when user types in any synced field
+function onShared(field, val, sourceId) {
+  S[field] = parseFloat(val) || 0;
+  // Push value to all OTHER inputs for this field
+  (SYNC[field] || []).forEach(id => {
+    if (id === sourceId) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = S[field];
+    // Green flash to show the sync
+    el.classList.remove('sync-flash');
+    void el.offsetWidth; // reflow to restart animation
+    el.classList.add('sync-flash');
+    setTimeout(() => el.classList.remove('sync-flash'), 900);
+  });
+  calcAll();
+}
+
+// ═══════════════════════════════════════════════════
+//  Utilities
+// ═══════════════════════════════════════════════════
+const fmt = n => {
+  if (n == null || isNaN(n)) return '—';
+  return (n < 0 ? '-₹' : '₹') + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+};
+const fmtMo = n => n && !isNaN(n) ? n.toFixed(1) + ' months' : '—';
+
+function showTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',i===j));
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB 1 – Equity  (FIRST — produces S.eqTax)
+// ═══════════════════════════════════════════════════
+let eqType = 'LTCG';
+function setEqType(t) {
+  eqType = t;
+  document.getElementById('eq-ltcg-btn').classList.toggle('active', t==='LTCG');
+  document.getElementById('eq-stcg-btn').classList.toggle('active', t==='STCG');
+  calcAll();
+}
+
+function calcEquity() {
+  const inv   = S.investment;
+  const gains = S.gains;
+  const op    = S.outperf / 100;
+  const isL   = eqType === 'LTCG';
+  const ex    = isL ? 125000 : 0;
+  const rate  = isL ? 0.125 : 0.20;
+  const taxable = Math.max(0, gains - ex);
+  const tax     = taxable * rate;
+  const eff     = gains > 0 ? tax/gains : 0;
+
+  S.eqTax = tax; // ← shared downstream
+
+  document.getElementById('eq-exemption').textContent = isL ? '₹1,25,000' : 'Nil';
+  document.getElementById('eq-taxable').textContent   = fmt(taxable);
+  document.getElementById('eq-rate').textContent      = (rate*100).toFixed(1)+'%';
+  document.getElementById('eq-tax').textContent       = fmt(tax);
+  document.getElementById('eq-effrate').textContent   = (eff*100).toFixed(2)+'%';
+  document.getElementById('eq-net').textContent       = fmt(inv - tax);
+
+  const yr1 = inv * op;
+  const net = yr1 - tax;
+  const mo  = yr1 > 0 ? (tax/yr1)*12 : null;
+  document.getElementById('eq-yr1op').textContent      = fmt(yr1);
+  document.getElementById('eq-taxpaid').textContent    = fmt(tax);
+  document.getElementById('eq-netbenefit').textContent = fmt(net);
+  document.getElementById('eq-months').textContent     = fmtMo(mo);
+  const pct = mo ? Math.min(100,(mo/12)*100) : 0;
+  document.getElementById('eq-timeline').style.width   = pct+'%';
+  document.getElementById('eq-tl-left').textContent    = fmtMo(mo)+' to recover';
+
+  const rows = [500000,1000000,2000000,5000000,10000000];
+  const tb = document.getElementById('eq-scenario-table'); tb.innerHTML='';
+  rows.forEach(g => {
+    const tx = Math.max(0,g-ex)*rate;
+    const er = g>0?tx/g:0;
+    const tr = document.createElement('tr');
+    tr.innerHTML=`<td>${fmt(g)}</td><td>${fmt(tx)}</td><td>${(er*100).toFixed(3)}%</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB 2 – Multi-Year  (reads S.eqTax)
+// ═══════════════════════════════════════════════════
+function calcMultiYear() {
+  const inv   = S.investment;
+  const tax   = S.eqTax;
+  const op    = S.outperf / 100;
+  const years = +document.getElementById('my-years').value || 5;
+  const ann   = inv * op;
+
+  document.getElementById('my-tax').value     = Math.round(tax);
+  document.getElementById('my-onetax').textContent = fmt(tax);
+  document.getElementById('my-annual').textContent = fmt(ann);
+
+  const cumN = ann*years - tax;
+  const roiN = tax>0 ? cumN/tax : 0;
+  document.getElementById('my-cum').textContent = fmt(cumN);
+  document.getElementById('my-roi').textContent = roiN.toFixed(2)+'x';
+
+  const tb = document.getElementById('my-table'); tb.innerHTML='';
+  const cd = [];
+  for (let y=1; y<=years; y++) {
+    const co = ann*y, nb = co-tax, roi = tax>0?nb/tax:0;
+    cd.push({y,nb});
+    const tr = document.createElement('tr');
+    tr.innerHTML=`<td>Year ${y}</td><td>${fmt(co)}</td><td>${fmt(tax)}</td><td>${fmt(nb)}</td><td>${roi.toFixed(2)}x</td>`;
+    tb.appendChild(tr);
+  }
+  const mx = Math.max(...cd.map(d=>Math.abs(d.nb)),1);
+  const ch = document.getElementById('my-chart'); ch.innerHTML='';
+  cd.forEach(d=>{
+    const h = Math.max(4,(Math.abs(d.nb)/mx)*120);
+    const col = document.createElement('div'); col.className='bar-col';
+    const c = d.nb>=0?'var(--accent3)':'var(--danger)';
+    col.innerHTML=`<div class="bar" style="height:${h}px;background:${c}" data-tip="${fmt(d.nb)}"></div><div class="bar-label">Yr ${d.y}</div>`;
+    ch.appendChild(col);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB 3 – Quick Comparison  (reads S.eqTax)
+// ═══════════════════════════════════════════════════
+function calcQuickComp() {
+  const inv    = S.investment;
+  const tax    = S.eqTax;
+  const custom = S.outperf / 100;
+
+  document.getElementById('qc-tax').value = Math.round(tax);
+
+  const scenarios = [
+    {pct:0.03, label:'3% p.a. (Conservative)'},
+    {pct:0.05, label:'5% p.a. (Base Case)'},
+    {pct:0.07, label:'7% p.a. (Optimistic)'},
+    {pct:custom, label:`${(custom*100).toFixed(1)}% p.a. (Your Input)`},
+  ];
+
+  const sc = document.getElementById('qc-scenarios'); sc.innerHTML='';
+  scenarios.forEach(s=>{
+    const yr1=inv*s.pct, net=yr1-tax;
+    const mo=yr1>0?(tax/yr1)*12:null;
+    const c=net>=0?'var(--accent3)':'var(--danger)';
+    sc.innerHTML+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(42,53,80,0.4)">
+      <span style="font-size:0.82rem;color:var(--text2)">${s.label}</span>
+      <div style="display:flex;gap:16px">
+        <div style="text-align:right"><div style="font-size:0.82rem;font-weight:600;color:var(--accent2)">${fmt(yr1)}</div><div style="font-size:0.68rem;color:var(--text3)">Year 1 outperf</div></div>
+        <div style="text-align:right"><div style="font-size:0.82rem;font-weight:600;color:${c}">${fmt(net)}</div><div style="font-size:0.68rem;color:var(--text3)">Net benefit</div></div>
+        <div style="text-align:right;min-width:65px"><div style="font-size:0.82rem;font-weight:600;color:var(--accent)">${mo?mo.toFixed(1)+' mo':'—'}</div><div style="font-size:0.68rem;color:var(--text3)">to recover</div></div>
+      </div></div>`;
+  });
+
+  const br = document.getElementById('qc-bars'); br.innerHTML='';
+  scenarios.forEach(s=>{
+    const yr1=inv*s.pct;
+    const mo=yr1>0?Math.min(24,(tax/yr1)*12):24;
+    br.innerHTML+=`<div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:0.78rem;color:var(--text2)">${s.label}</span>
+        <span style="font-size:0.78rem;font-weight:600;color:var(--accent)">${mo.toFixed(1)} months</span>
+      </div>
+      <div class="timeline-track"><div class="timeline-fill" style="width:${(mo/24)*100}%"></div></div></div>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB 4 – Debt  (fully independent)
+// ═══════════════════════════════════════════════════
+function calcDebt() {
+  const inv  = +document.getElementById('dt-investment').value||0;
+  const g    = +document.getElementById('dt-gains').value||0;
+  const rp   = +document.getElementById('dt-taxrate').value||20;
+  const op   = (+document.getElementById('dt-outperf').value||0)/100;
+  const tax  = g*(rp/100);
+  document.getElementById('dt-taxable').textContent  = fmt(g);
+  document.getElementById('dt-rate').textContent     = rp+'%';
+  document.getElementById('dt-tax').textContent      = fmt(tax);
+  document.getElementById('dt-effrate').textContent  = g>0?(tax/g*100).toFixed(1)+'%':'0%';
+  document.getElementById('dt-net').textContent      = fmt(inv-tax);
+  const yr1=inv*op, net=yr1-tax, mo=yr1>0?(tax/yr1)*12:null;
+  document.getElementById('dt-yr1op').textContent    = fmt(yr1);
+  document.getElementById('dt-taxpaid').textContent  = fmt(tax);
+  document.getElementById('dt-netbenefit').textContent = fmt(net);
+  document.getElementById('dt-months').textContent   = fmtMo(mo);
+  document.getElementById('dt-netcard').className    = 'result-item '+(net>=0?'positive':'negative');
+  const pct=mo?Math.min(100,(mo/24)*100):100;
+  document.getElementById('dt-timeline').style.width = pct+'%';
+  document.getElementById('dt-tl-left').textContent  = fmtMo(mo)+' to recover';
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB 5 – Direct vs Regular MF  (fully independent)
+// ═══════════════════════════════════════════════════
+let mfType='LTCG';
+function setMFType(t){
+  mfType=t;
+  document.getElementById('mf-ltcg-btn').classList.toggle('active',t==='LTCG');
+  document.getElementById('mf-stcg-btn').classList.toggle('active',t==='STCG');
+  calcMF();
+}
+function calcMF(){
+  const inv  = +document.getElementById('mf-investment').value||0;
+  const ex   = (+document.getElementById('mf-expense').value||0)/100;
+  const g    = +document.getElementById('mf-gains').value||0;
+  const isL  = mfType==='LTCG';
+  const exem = isL?125000:0, rate=isL?0.125:0.20;
+  const tax  = Math.max(0,g-exem)*rate;
+  const ann  = inv*ex;
+  const mo   = ann>0?(tax/ann)*12:null;
+  const yr1  = ann-tax;
+  document.getElementById('mf-exemption').textContent = isL?'₹1,25,000':'Nil';
+  document.getElementById('mf-taxable').textContent   = fmt(Math.max(0,g-exem));
+  document.getElementById('mf-tax').textContent       = fmt(tax);
+  document.getElementById('mf-annual').textContent    = fmt(ann);
+  document.getElementById('mf-months').textContent    = mo?mo.toFixed(1)+' months':'—';
+  document.getElementById('mf-yr1net').textContent    = fmt(yr1);
+  document.getElementById('mf-yr1card').className     = 'result-item '+(yr1>=0?'positive':'negative');
+  const tb=document.getElementById('mf-table'); tb.innerHTML='';
+  for(let y=1;y<=10;y++){
+    const cs=ann*y, n=cs-tax, tr=document.createElement('tr');
+    tr.innerHTML=`<td>Year ${y}</td><td>${fmt(ann)}</td><td>${fmt(cs)}</td><td style="color:${n>=0?'var(--accent3)':'var(--danger)'};font-weight:600">${fmt(n)}</td>`;
+    tb.appendChild(tr);
+  }
+  const gaps=[0.005,0.0075,0.010,0.0125,0.015];
+  const st=document.getElementById('mf-scenario-table'); st.innerHTML='';
+  gaps.forEach(eg=>{
+    const aS=inv*eg, m=aS>0?(tax/aS)*12:null, y1=aS-tax;
+    const tr=document.createElement('tr');
+    if(Math.abs(eg-ex)<0.0001) tr.classList.add('active-row');
+    tr.innerHTML=`<td>${(eg*100).toFixed(2)}%</td><td>${fmt(aS)}</td><td>${m?m.toFixed(1):'—'} mo</td><td style="color:${y1>=0?'var(--accent3)':'var(--danger)'};font-weight:600">${fmt(y1)}</td>`;
+    st.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  Master recalc — Equity first (produces S.eqTax)
+// ═══════════════════════════════════════════════════
+function calcAll(){
+  calcEquity();
+  calcMultiYear();
+  calcQuickComp();
+  calcDebt();
+  calcMF();
+}
+
+calcAll();
+</script>
+</body>
+</html>
